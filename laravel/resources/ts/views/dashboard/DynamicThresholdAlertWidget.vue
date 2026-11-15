@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 interface Props {
   actualFr: number
@@ -8,6 +8,7 @@ interface Props {
   criticalThreshold: number
   excessFuelLiters: number
   isLoading: boolean
+  isError: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -17,7 +18,10 @@ const props = withDefaults(defineProps<Props>(), {
   criticalThreshold: 1.3660,
   excessFuelLiters: 0,
   isLoading: false,
+  isError: false,
 })
+
+const emit = defineEmits<{ retry: [] }>()
 
 const status = computed(() => {
   if (props.actualFr >= props.criticalThreshold) return 'CRITICAL'
@@ -39,10 +43,25 @@ const statusConfig = computed(() => {
 const deviationPct = computed(() => {
   return (((props.actualFr - props.budgetBaseline) / props.budgetBaseline) * 100).toFixed(1)
 })
+
+// Progress bar percentage (0.90 to 1.35 range mapped to 0-100%)
+const progressPct = computed(() => {
+  const min = 0.90
+  const max = 1.35
+  const clamped = Math.max(min, Math.min(max, props.actualFr))
+  return Math.round(((clamped - min) / (max - min)) * 100)
+})
+
+const progressColor = computed(() => statusConfig.value.color)
+
+const isCriticalState = computed(() => status.value === 'CRITICAL')
 </script>
 
 <template>
-  <VCard class="border">
+  <VCard
+    class="alert-card"
+    :class="{ 'critical-tint': isCriticalState }"
+  >
     <VCardItem>
       <template #prepend>
         <VAvatar
@@ -67,12 +86,28 @@ const deviationPct = computed(() => {
       <div v-if="isLoading" class="d-flex justify-center my-4">
         <VProgressCircular indeterminate color="primary" />
       </div>
+      <div v-else-if="isError" class="text-center my-4">
+        <VIcon
+          icon="bx-error-circle"
+          size="48"
+          class="text-error mb-3"
+        />
+        <h4 class="text-body-1 mb-3">Gagal Memuat Data</h4>
+        <p class="text-caption text-medium-emphasis mb-3">Tidak dapat mengambil data ratio bahan bakar.</p>
+        <VBtn
+          variant="tonal"
+          size="small"
+          @click="emit('retry')"
+        >
+          Coba Lagi
+        </VBtn>
+      </div>
       <template v-else>
         <div class="d-flex align-center gap-4 mb-3">
           <div>
-            <span class="text-caption text-medium-emphasis">Current FR</span>
+            <span class="text-caption text-medium-emphasis">Forecast FR (H+1)</span>
             <h3
-              class="text-h3 font-weight-bold"
+              class="text-h5 font-weight-bold text-tabular-nums"
               :class="`text-${statusConfig.color}`"
             >
               {{ props.actualFr.toFixed(4) }}
@@ -94,11 +129,20 @@ const deviationPct = computed(() => {
           </VChip>
         </div>
 
+        <!-- Progress Linear Ratio Indicator -->
+        <VProgressLinear
+          :model-value="progressPct"
+          :color="progressColor"
+          height="6"
+          rounded
+          class="mb-3"
+        />
+
         <VDivider class="mb-3" />
 
         <div class="d-flex justify-space-between text-caption flex-wrap gap-2">
           <div>
-            <span class="text-medium-emphasis">Budget Baseline:</span>
+            <span class="text-medium-emphasis">Budget SPO:</span>
             <strong class="ms-1 text-high-emphasis">{{ props.budgetBaseline.toFixed(4) }} L/BCM</strong>
           </div>
           <div>
@@ -110,10 +154,25 @@ const deviationPct = computed(() => {
           </div>
           <div>
             <span class="text-medium-emphasis">Excess Fuel:</span>
-            <strong class="ms-1 text-error">+{{ props.excessFuelLiters.toLocaleString('id-ID') }} L</strong>
+            <strong
+              class="ms-1 text-tabular-nums"
+              :class="props.excessFuelLiters > 0 ? 'text-error' : 'text-success'"
+            >{{ props.excessFuelLiters > 0 ? '+' : '' }}{{ props.excessFuelLiters.toLocaleString('id-ID') }} L</strong>
           </div>
         </div>
       </template>
     </VCardText>
   </VCard>
 </template>
+
+<style scoped>
+.alert-card {
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  transition: border-color 0.3s ease, background-color 0.3s ease;
+}
+
+.alert-card.critical-tint {
+  background-color: rgba(var(--v-theme-error), 0.06);
+  border-left: 4px solid rgb(var(--v-theme-error));
+}
+</style>

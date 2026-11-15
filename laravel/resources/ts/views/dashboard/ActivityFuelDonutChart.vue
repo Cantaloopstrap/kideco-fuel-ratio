@@ -40,7 +40,7 @@ const chartOptions = computed(() => {
       type: 'donut' as const,
     },
     labels: chartLabels.value,
-    colors: ['#1A73E8', '#34A853', '#F9AB00', '#7B61FF'],
+    colors: [currentTheme.primary, currentTheme.secondary, currentTheme.warning, currentTheme.success],
     legend: {
       position: 'bottom' as const,
       fontSize: '12px',
@@ -79,7 +79,7 @@ const chartOptions = computed(() => {
     <VCardItem>
       <template #prepend>
         <VAvatar
-          color="info"
+          color="secondary"
           variant="tonal"
           size="44"
           rounded
